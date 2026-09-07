@@ -54,169 +54,168 @@ struct ResetWidgetView: View {
     let entry: ResetEntry
     @Environment(\.widgetFamily) private var family
     private var extraLarge: Bool { family == .systemExtraLarge }
-    private var posts: [Post] { Array(ResetPresentation.highlights(entry.snapshot.feed).prefix(2)) }
-    private var events: [ResetEvent] { Array(ResetPresentation.verified(entry.snapshot.history).prefix(2)) }
-    private var percent: Double? { entry.personal.isConfigured ? entry.personal.remainingPercent : nil }
+    private var posts: [Post] { Array(ResetPresentation.highlights(entry.snapshot.feed).prefix(extraLarge ? 3 : 2)) }
+    private var events: [ResetEvent] { Array(ResetPresentation.verified(entry.snapshot.history).prefix(extraLarge ? 3 : 1)) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 6) {
-                Image(systemName: "circle.hexagongrid.fill").font(.system(size: 13, weight: .medium))
-                Text("Codex Reset").font(.system(size: 12, weight: .medium))
-                Spacer()
-                Circle().fill(entry.snapshot.isStale(at: entry.date) ? Color.orange : Color.green).frame(width: 5, height: 5)
-                Button(intent: RefreshResetWidgetIntent()) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.secondary)
-                        .frame(width: 24, height: 24)
-                        .background(.primary.opacity(0.05), in: Circle())
+        VStack(alignment: .leading, spacing: 9) {
+            header
+            HStack(alignment: .top, spacing: 12) {
+                usageMetric
+                countdownMetric
+                creditMetric
+                if extraLarge {
+                    forecastMetric(entry.snapshot.forecast?.probabilities.rounded_24h, label: "24h 重置概率")
+                    forecastMetric(entry.snapshot.forecast?.probabilities.rounded_48h, label: "48h 重置概率")
                 }
-                .buttonStyle(.plain)
-                .accessibilityLabel("刷新公告、历史和预测")
-                .help("刷新公告、历史与预测；个人用量使用最近同步记录")
             }
+            if !extraLarge { forecastStrip }
+            Divider().opacity(0.5)
             if extraLarge {
-                HStack(alignment: .top, spacing: 16) {
-                    expandedMetrics.frame(width: 250)
-                    Rectangle().fill(.primary.opacity(0.07)).frame(width: 0.5)
-                    expandedNews.frame(maxWidth: .infinity, alignment: .leading)
-                }.frame(maxHeight: .infinity)
+                HStack(alignment: .top, spacing: 20) {
+                    news.frame(maxWidth: .infinity, alignment: .leading)
+                    Rectangle().fill(.primary.opacity(0.06)).frame(width: 0.5)
+                    history.frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(maxHeight: .infinity, alignment: .top)
             } else {
-                compactContent
+                news
+                Divider().opacity(0.4)
+                history
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding(14)
         .containerBackground(for: .widget) {
-            Rectangle().fill(.background)
-                .overlay {
-                    LinearGradient(colors: [.blue.opacity(0.07), .clear, .primary.opacity(0.025)], startPoint: .topLeading, endPoint: .bottomTrailing)
-                }
+            Rectangle().fill(.background).overlay {
+                LinearGradient(colors: [.blue.opacity(0.06), .clear, .primary.opacity(0.02)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            }
         }
         .widgetURL(URL(string: "codexreset://open"))
     }
 
-    private var compactContent: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 16) {
-                QuotaRing(percent: percent, size: 88)
-                resetCountdown
-            }
-            probabilities
-            Divider().opacity(0.45)
-            if let post = posts.first {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(ResetPresentation.category(post.kind)).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
-                    Text(post.text.split(whereSeparator: \.isWhitespace).joined(separator: " ")).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(4)
-                }
-            }
-            if let event = events.first, let date = event.announced_at {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(spacing: 5) {
-                        Image(systemName: "checkmark.seal").font(.system(size: 10))
-                        Text("最近核验重置")
-                        Spacer()
-                        Text(date, format: .dateTime.month().day())
-                    }.font(.system(size: 10)).foregroundStyle(.secondary)
-                    Text(event.summary).font(.system(size: 11)).lineSpacing(2).lineLimit(2)
-                }
-            }
-        }
-    }
-
-    private var expandedMetrics: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                QuotaRing(percent: percent, size: 108)
-                resetCountdown
-            }
-            probabilities.padding(.vertical, 4)
-            if let date = entry.snapshot.forecast?.last_reset_at {
-                VStack(alignment: .leading, spacing: 5) {
-                    SectionCaption(title: "最近一次全局重置")
-                    Text(date, format: .dateTime.month().day().hour().minute())
-                        .font(.system(size: 12, weight: .medium))
-                }
-            }
-        }
-    }
-
-    private var resetCountdown: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("距离个人重置").font(.system(size: 10)).foregroundStyle(.secondary)
-            Text(entry.personal.isConfigured ? entry.personal.needsUpdate(at: entry.date) ? "等待更新" : ResetPresentation.countdown(to: entry.personal.resetAt, from: entry.date) : "连接 Codex")
-                .font(.system(size: extraLarge ? 15 : 17, weight: .medium, design: .rounded))
-                .lineLimit(1).minimumScaleFactor(0.75)
-            if entry.personal.isConfigured {
-                Text(entry.personal.resetAt, format: .dateTime.month().day().hour().minute())
-                    .font(.system(size: 10)).foregroundStyle(.secondary)
-            }
+    private var header: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "circle.hexagongrid.fill").font(.system(size: 12))
+            Text("Codex Reset").font(.system(size: 12, weight: .semibold))
+            Spacer()
             if let recorded = entry.personal.recordedAt {
-                Text("\(recorded.formatted(date: .omitted, time: .shortened)) 记录\(entry.personal.isOld(at: entry.date) ? " · 待更新" : "")")
+                Text("\(recorded.formatted(date: .omitted, time: .shortened)) 记录")
                     .font(.system(size: 9)).foregroundStyle(entry.personal.isOld(at: entry.date) ? Color.orange : .secondary)
             }
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 5) {
-                    Image(systemName: "ticket")
-                    Text("重置券")
-                    Text(entry.credits.count(at: entry.date).map { "\($0) 张" } ?? "未同步").fontWeight(.semibold)
-                }.font(.system(size: 11)).foregroundStyle(.blue)
-                if entry.credits.isStale(at: entry.date), entry.credits.fetchedAt != nil {
-                    Text("记录待更新").foregroundStyle(.orange)
-                } else if let expiry = entry.credits.nextExpiry(at: entry.date) {
-                    Text("\(expiry.formatted(.dateTime.month().day().hour().minute())) 到期").foregroundStyle(.secondary)
-                }
-            }
-            .font(.system(size: 9))
-            .padding(.top, 3)
-            .help(entry.credits.fetchedAt.map { "重置券同步于 \($0.formatted())" } ?? "尚未读取重置券")
-        }.frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    private var probabilities: some View {
-        HStack(spacing: 0) {
-            probability(entry.snapshot.forecast?.probabilities.rounded_24h, label: "24h 内重置")
-            Rectangle().fill(.primary.opacity(0.06)).frame(width: 0.5, height: 28).padding(.horizontal, 18)
-            probability(entry.snapshot.forecast?.probabilities.rounded_48h, label: "48h 内重置")
+            Circle().fill(entry.snapshot.isStale(at: entry.date) ? Color.orange : Color.green).frame(width: 4, height: 4)
+            Button(intent: RefreshResetWidgetIntent()) {
+                Image(systemName: "arrow.clockwise").font(.system(size: 11, weight: .medium))
+                    .foregroundStyle(.secondary).frame(width: 22, height: 22)
+                    .background(.primary.opacity(0.05), in: Circle())
+            }.buttonStyle(.plain).accessibilityLabel("刷新公告、历史和预测")
+                .help("刷新公告、历史与预测；个人用量使用最近同步记录")
         }
     }
 
-    private func probability(_ value: Int?, label: String) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+    private var usageMetric: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            caption("周额度剩余")
             HStack(alignment: .firstTextBaseline, spacing: 1) {
-                Text(value.map(String.init) ?? "—").font(.system(size: 25, weight: .medium, design: .rounded))
-                if value != nil { Text("%").font(.system(size: 12)).foregroundStyle(.secondary) }
+                Text(entry.personal.isConfigured ? "\(Int(entry.personal.remainingPercent))" : "—")
+                    .font(.system(size: 32, weight: .medium, design: .rounded))
+                if entry.personal.isConfigured { Text("%").font(.system(size: 12)).foregroundStyle(.secondary) }
             }.monospacedDigit()
-            Text(label).font(.system(size: 9)).foregroundStyle(.secondary)
+            GeometryReader { geometry in
+                Capsule().fill(.blue.opacity(0.1)).overlay(alignment: .leading) {
+                    Capsule().fill(.blue).frame(width: geometry.size.width * (entry.personal.isConfigured ? entry.personal.remainingPercent / 100 : 0))
+                }
+            }.frame(height: 3).padding(.trailing, 12)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var expandedNews: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            SectionCaption(title: "最新动态")
-            ForEach(posts) { post in
-                VStack(alignment: .leading, spacing: 4) {
+    private var countdownMetric: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            caption("距离重置")
+            Text(entry.personal.isConfigured ? entry.personal.needsUpdate(at: entry.date) ? "待更新" : ResetPresentation.countdown(to: entry.personal.resetAt, from: entry.date) : "未连接")
+                .font(.system(size: 15, weight: .medium, design: .rounded)).lineLimit(1).minimumScaleFactor(0.7)
+            if entry.personal.isConfigured {
+                Text(entry.personal.resetAt, format: .dateTime.month().day().hour().minute())
+                    .font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1).minimumScaleFactor(0.8)
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var creditMetric: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Label("重置券", systemImage: "ticket").font(.system(size: 10)).foregroundStyle(.secondary)
+            Text(entry.credits.count(at: entry.date).map { "\($0) 张" } ?? "未同步")
+                .font(.system(size: 21, weight: .medium, design: .rounded)).foregroundStyle(.blue)
+            if entry.credits.isStale(at: entry.date), entry.credits.fetchedAt != nil {
+                Text("记录待更新").font(.system(size: 9)).foregroundStyle(.orange)
+            } else if let expiry = entry.credits.nextExpiry(at: entry.date) {
+                Text("\(expiry.formatted(.dateTime.month().day())) 到期")
+                    .font(.system(size: 9)).foregroundStyle(.secondary).lineLimit(1)
+            }
+        }.frame(maxWidth: .infinity, alignment: .leading)
+            .help(entry.credits.nextExpiry(at: entry.date).map { "最近到期：\($0.formatted())" } ?? "暂无到期明细")
+    }
+
+    private var forecastStrip: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles").font(.system(size: 10)).foregroundStyle(.secondary)
+            Text("重置预测").font(.system(size: 10)).foregroundStyle(.secondary)
+            Spacer(minLength: 4)
+            inlineProbability(entry.snapshot.forecast?.probabilities.rounded_24h, label: "24h")
+            Text("·").foregroundStyle(.tertiary)
+            inlineProbability(entry.snapshot.forecast?.probabilities.rounded_48h, label: "48h")
+        }.padding(.horizontal, 9).padding(.vertical, 6)
+            .background(.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 7))
+    }
+
+    private func inlineProbability(_ value: Int?, label: String) -> some View {
+        HStack(spacing: 4) {
+            Text(label).foregroundStyle(.secondary)
+            Text(value.map { "\($0)%" } ?? "—").fontWeight(.semibold).monospacedDigit()
+        }.font(.system(size: 11))
+    }
+
+    private func forecastMetric(_ value: Int?, label: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            caption(label)
+            Text(value.map { "\($0)%" } ?? "—").font(.system(size: 25, weight: .medium, design: .rounded)).monospacedDigit()
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var news: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            if extraLarge { caption("最新动态") }
+            ForEach(Array(posts.enumerated()), id: \.element.id) { index, post in
+                VStack(alignment: .leading, spacing: 3) {
                     HStack {
                         Text(ResetPresentation.category(post.kind)).fontWeight(.medium)
                         Spacer()
                         Text(post.at, format: .dateTime.month().day())
                     }.font(.system(size: 10)).foregroundStyle(.secondary)
-                    Text(post.text.split(whereSeparator: \.isWhitespace).joined(separator: " ")).font(.system(size: 12, weight: .regular)).lineSpacing(2).lineLimit(3)
-                }
-            }
-            Divider().opacity(0.45)
-            SectionCaption(title: "已核验的重置")
-            ForEach(events) { event in
-                HStack(alignment: .top, spacing: 12) {
-                    if let date = event.announced_at {
-                        Text(date, format: .dateTime.month().day()).font(.system(size: 10, weight: .medium))
-                            .foregroundStyle(.secondary).frame(width: 45, alignment: .leading)
-                    }
-                    Text(event.summary).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(3)
+                    Text(post.text.split(whereSeparator: \.isWhitespace).joined(separator: " "))
+                        .font(.system(size: 11)).lineSpacing(1).lineLimit(extraLarge ? 3 : index == 0 ? 3 : 2)
                 }
             }
         }
+    }
+
+    private var history: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            if extraLarge { caption("已核验的重置") }
+            ForEach(events) { event in
+                VStack(alignment: .leading, spacing: 3) {
+                    HStack {
+                        Label("已核验重置", systemImage: "checkmark.seal")
+                        Spacer()
+                        if let date = event.announced_at { Text(date, format: .dateTime.month().day()) }
+                    }.font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text(event.summary).font(.system(size: 11)).lineSpacing(1).lineLimit(extraLarge ? 3 : 2)
+                }
+            }
+        }
+    }
+
+    private func caption(_ text: String) -> some View {
+        Text(text).font(.system(size: 10)).foregroundStyle(.secondary)
     }
 }
 
