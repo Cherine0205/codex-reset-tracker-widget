@@ -62,8 +62,14 @@ struct PersonalUsage: Codable, Sendable {
     var usedPercent: Double = 0
     var resetAt: Date = .now.addingTimeInterval(7 * 86400)
     var recordedAt: Date?
+    var source: String?
 
     var isConfigured: Bool { recordedAt != nil }
+    var isFromCodex: Bool { source == "codexLocal" }
+    var sourceLabel: String { isFromCodex ? "Codex 本地记录" : "手动记录" }
+    func isOld(at date: Date = .now) -> Bool {
+        isFromCodex && (recordedAt.map { date.timeIntervalSince($0) > 1800 } ?? true)
+    }
     var remainingPercent: Double { max(0, min(100, 100 - usedPercent)) }
     func needsUpdate(at date: Date = .now) -> Bool { isConfigured && resetAt <= date }
 }

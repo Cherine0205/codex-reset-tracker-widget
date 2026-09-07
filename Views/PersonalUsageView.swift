@@ -10,7 +10,11 @@ struct PersonalUsageView: View {
                 HStack {
                     Label("个人周用量", systemImage: "gauge.with.dots.needle.50percent").font(.headline)
                     Spacer()
-                    Button("编辑") { draft = store.personal; editing = true }
+                    if store.codexConnected {
+                        Button("断开") { store.disconnectCodex() }
+                    } else {
+                        Button("编辑") { draft = store.personal; editing = true }
+                    }
                 }
                 TimelineView(.periodic(from: .now, by: 60)) { context in
                     if store.personal.isConfigured {
@@ -18,12 +22,14 @@ struct PersonalUsageView: View {
                             .font(.system(size: 30, weight: .semibold, design: .rounded))
                         ProgressView(value: store.personal.remainingPercent, total: 100).tint(.teal)
                         if store.personal.needsUpdate(at: context.date) {
-                            Text("已到重置时间，请核对并更新用量").foregroundStyle(.orange)
+                            Text(store.personal.isFromCodex ? "已到重置时间，等待 Codex 新记录" : "已到重置时间，请核对并更新用量").foregroundStyle(.orange)
                         } else {
                             HStack {
                                 Text("距离重置")
                                 Text(store.personal.resetAt, style: .relative).monospacedDigit()
                             }
+                            Text(store.personal.resetAt, format: .dateTime.month().day().hour().minute())
+                                .font(.caption).foregroundStyle(.secondary)
                         }
                     } else {
                         Text("尚未设置").font(.title2)
@@ -31,8 +37,19 @@ struct PersonalUsageView: View {
                     }
                 }
                 .font(.callout)
-                Text("手动记录 · 仅保存在此 Mac · 不自动读取账号")
-                    .font(.caption).foregroundStyle(.secondary)
+                if !store.codexConnected {
+                    Button("连接本机 Codex…") { Task { await store.connectCodex() } }
+                }
+                if let error = store.codexError { Text(error).font(.caption).foregroundStyle(.orange) }
+                HStack {
+                    Text(store.personal.sourceLabel)
+                    if let date = store.personal.recordedAt {
+                        Text(date, format: .dateTime.month().day().hour().minute())
+                    }
+                }.font(.caption).foregroundStyle(.secondary)
+                if store.personal.isOld() {
+                    Text("记录超过 30 分钟，使用 Codex 后再刷新").font(.caption).foregroundStyle(.orange)
+                }
             }
             .frame(maxWidth: .infinity, minHeight: 195, alignment: .topLeading).padding(10)
         }
@@ -53,6 +70,7 @@ struct PersonalUsageView: View {
                     Button("取消") { editing = false }.keyboardShortcut(.cancelAction)
                     Button("保存") {
                         draft.recordedAt = .now
+                        draft.source = nil
                         store.savePersonal(draft)
                         if store.storageError == nil { editing = false }
                     }.keyboardShortcut(.defaultAction)
