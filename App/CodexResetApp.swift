@@ -6,7 +6,7 @@ struct CodexResetApp: App {
     var body: some Scene {
         WindowGroup("Codex Reset", id: "main") {
             ContentView(store: store)
-                .frame(minWidth: 740, minHeight: 580)
+                .frame(minWidth: 900, minHeight: 660)
                 .onOpenURL { _ in NSApplication.shared.activate(ignoringOtherApps: true) }
                 .task {
                     while !Task.isCancelled {
@@ -15,7 +15,7 @@ struct CodexResetApp: App {
                     }
                 }
         }
-        .defaultSize(width: 880, height: 720)
+        .defaultSize(width: 1080, height: 820)
         .commands {
             CommandGroup(after: .newItem) {
                 Button("刷新数据") { Task { await store.refresh() } }
