@@ -1,5 +1,19 @@
 import SwiftUI
 import WidgetKit
+import AppIntents
+
+struct RefreshResetWidgetIntent: AppIntent {
+    static let title: LocalizedStringResource = "刷新 Codex Reset"
+    static let description = IntentDescription("刷新公告、历史和预测，并读取最近同步的个人用量。")
+    static let openAppWhenRun: Bool = false
+
+    func perform() async throws -> some IntentResult {
+        // WidgetKit requests a new timeline after a button intent completes.
+        // The provider fetches all three endpoints before supplying that timeline.
+        WidgetCenter.shared.reloadTimelines(ofKind: "CodexResetWidget")
+        return .result()
+    }
+}
 
 struct ResetEntry: TimelineEntry {
     let date: Date
@@ -45,6 +59,16 @@ struct ResetWidgetView: View {
                 Text("Codex Reset").font(.system(size: 12, weight: .medium))
                 Spacer()
                 Circle().fill(entry.snapshot.isStale(at: entry.date) ? Color.orange : Color.green).frame(width: 5, height: 5)
+                Button(intent: RefreshResetWidgetIntent()) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 24, height: 24)
+                        .background(.primary.opacity(0.05), in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("刷新公告、历史和预测")
+                .help("刷新公告、历史与预测；个人用量使用最近同步记录")
             }
             if extraLarge {
                 HStack(alignment: .top, spacing: 16) {
