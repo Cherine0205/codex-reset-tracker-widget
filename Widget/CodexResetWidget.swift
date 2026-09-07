@@ -42,7 +42,7 @@ struct ResetWidgetView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 6) {
                 Image(systemName: "circle.hexagongrid.fill").font(.system(size: 13, weight: .medium))
-                Text("Codex Reset").font(.system(size: 13, weight: .semibold))
+                Text("Codex Reset").font(.system(size: 12, weight: .medium))
                 Spacer()
                 Circle().fill(entry.snapshot.isStale(at: entry.date) ? Color.orange : Color.green).frame(width: 5, height: 5)
             }
@@ -65,8 +65,8 @@ struct ResetWidgetView: View {
         }
         .containerBackground(for: .widget) {
             Rectangle().fill(.background)
-                .overlay(alignment: .topLeading) {
-                    LinearGradient(colors: [.blue.opacity(0.045), .clear], startPoint: .topLeading, endPoint: .bottomTrailing)
+                .overlay {
+                    LinearGradient(colors: [.blue.opacity(0.07), .clear, .primary.opacity(0.025)], startPoint: .topLeading, endPoint: .bottomTrailing)
                 }
         }
         .widgetURL(URL(string: "codexreset://open"))
@@ -83,7 +83,7 @@ struct ResetWidgetView: View {
             if let post = posts.first {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(ResetPresentation.category(post.kind)).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
-                    Text(post.text).font(.system(size: 11)).lineLimit(2)
+                    Text(post.text).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(2)
                 }
             }
             if let event = events.first, let date = event.announced_at {
@@ -118,7 +118,7 @@ struct ResetWidgetView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("距离个人重置").font(.system(size: 10)).foregroundStyle(.secondary)
             Text(entry.personal.isConfigured ? entry.personal.needsUpdate(at: entry.date) ? "等待更新" : ResetPresentation.countdown(to: entry.personal.resetAt, from: entry.date) : "连接 Codex")
-                .font(.system(size: extraLarge ? 15 : 17, weight: .semibold, design: .rounded))
+                .font(.system(size: extraLarge ? 15 : 17, weight: .medium, design: .rounded))
                 .lineLimit(1).minimumScaleFactor(0.75)
             if entry.personal.isConfigured {
                 Text(entry.personal.resetAt, format: .dateTime.month().day().hour().minute())
@@ -159,7 +159,7 @@ struct ResetWidgetView: View {
                         Spacer()
                         Text(post.at, format: .dateTime.month().day())
                     }.font(.system(size: 10)).foregroundStyle(.secondary)
-                    Text(post.text).font(.system(size: 12)).lineLimit(2)
+                    Text(post.text).font(.system(size: 12, weight: .regular)).lineSpacing(2).lineLimit(2)
                 }
             }
             Divider().opacity(0.45)
@@ -170,7 +170,7 @@ struct ResetWidgetView: View {
                         Text(date, format: .dateTime.month().day()).font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary).frame(width: 45, alignment: .leading)
                     }
-                    Text(event.summary).font(.system(size: 11)).lineLimit(2)
+                    Text(event.summary).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(2)
                 }
             }
         }

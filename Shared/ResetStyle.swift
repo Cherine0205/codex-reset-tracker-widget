@@ -13,7 +13,7 @@ struct QuotaRing: View {
             VStack(spacing: 1) {
                 HStack(alignment: .firstTextBaseline, spacing: 1) {
                     Text(percent.map { "\(Int($0))" } ?? "—")
-                        .font(.system(size: size * 0.31, weight: .semibold, design: .rounded))
+                        .font(.system(size: size * 0.31, weight: .medium, design: .rounded))
                     if percent != nil { Text("%").font(.system(size: size * 0.13, weight: .medium)).foregroundStyle(.secondary) }
                 }.monospacedDigit()
                 Text("周额度剩余").font(.system(size: max(9, size * 0.075), weight: .medium)).foregroundStyle(.secondary)

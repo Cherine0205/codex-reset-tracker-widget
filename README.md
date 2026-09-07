@@ -40,6 +40,8 @@ App 和 Widget 共用 `$(DEVELOPMENT_TEAM).com.cherine.codex-reset` App Group。
 
 运行主应用后，右键桌面 → **编辑小组件** → 搜索 **Codex Reset**，选择所需尺寸。若列表尚未出现，先将已构建的 App 拖入“应用程序”并打开一次。
 
+本地开发请使用 `script/build_and_run.sh` 更新。脚本在构建成功后同时重启主应用和本项目的小组件扩展，避免 WidgetKit 继续运行旧二进制而显示旧版界面；不会重启通知中心或其他应用的小组件。
+
 ## 数据与刷新
 
 | 内容 | 读取位置 |

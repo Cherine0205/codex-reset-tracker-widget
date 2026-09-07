@@ -7,6 +7,9 @@ if [[ "$MODE" != "--build" ]]; then pkill -x CodexReset >/dev/null 2>&1 || true;
 xcodebuild -project CodexReset.xcodeproj -scheme CodexReset -configuration Debug -derivedDataPath build build
 APP="$PWD/build/Build/Products/Debug/CodexReset.app"
 if [[ "$MODE" == "--build" ]]; then exit 0; fi
+# WidgetKit can retain the previous extension executable across app rebuilds.
+# Stop only this app's extension so the reload request launches the new binary.
+pkill -x CodexResetWidget >/dev/null 2>&1 || true
 if [[ "$MODE" == "--debug" ]]; then exec lldb -- "$APP/Contents/MacOS/CodexReset"; fi
 open "$APP"
 case "$MODE" in
