@@ -1,0 +1,7 @@
+MACOSX_DEPLOYMENT_TARGET = 14.0
+SWIFT_VERSION = 5.0
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+CODE_SIGN_IDENTITY = Apple Development
+APP_GROUP = $(DEVELOPMENT_TEAM).com.cherine.codex-reset
+#include? "Local.xcconfig"
