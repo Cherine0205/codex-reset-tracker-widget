@@ -39,7 +39,7 @@ struct ResetWidgetView: View {
     private var percent: Double? { entry.personal.isConfigured ? entry.personal.remainingPercent : nil }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 6) {
                 Image(systemName: "circle.hexagongrid.fill").font(.system(size: 13, weight: .medium))
                 Text("Codex Reset").font(.system(size: 12, weight: .medium))
@@ -47,7 +47,7 @@ struct ResetWidgetView: View {
                 Circle().fill(entry.snapshot.isStale(at: entry.date) ? Color.orange : Color.green).frame(width: 5, height: 5)
             }
             if extraLarge {
-                HStack(alignment: .top, spacing: 24) {
+                HStack(alignment: .top, spacing: 16) {
                     expandedMetrics.frame(width: 250)
                     Rectangle().fill(.primary.opacity(0.07)).frame(width: 0.5)
                     expandedNews.frame(maxWidth: .infinity, alignment: .leading)
@@ -55,14 +55,9 @@ struct ResetWidgetView: View {
             } else {
                 compactContent
             }
-            Spacer(minLength: 0)
-            HStack(spacing: 4) {
-                Text("实验预测")
-                if entry.snapshot.isStale(at: entry.date) { Text("· 缓存待更新") }
-                Spacer()
-                Text("codex-reset.com")
-            }.font(.system(size: 9)).foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .padding(14)
         .containerBackground(for: .widget) {
             Rectangle().fill(.background)
                 .overlay {
@@ -73,37 +68,40 @@ struct ResetWidgetView: View {
     }
 
     private var compactContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 21) {
-                QuotaRing(percent: percent, size: 94)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 16) {
+                QuotaRing(percent: percent, size: 88)
                 resetCountdown
-            }.padding(.vertical, 3)
+            }
             probabilities
             Divider().opacity(0.45)
             if let post = posts.first {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(ResetPresentation.category(post.kind)).font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
-                    Text(post.text).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(2)
+                    Text(post.text.split(whereSeparator: \.isWhitespace).joined(separator: " ")).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(4)
                 }
             }
             if let event = events.first, let date = event.announced_at {
-                HStack(spacing: 5) {
-                    Image(systemName: "checkmark.seal").font(.system(size: 10))
-                    Text("最近核验重置")
-                    Spacer()
-                    Text(date, format: .dateTime.month().day())
-                }.font(.system(size: 10)).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 5) {
+                        Image(systemName: "checkmark.seal").font(.system(size: 10))
+                        Text("最近核验重置")
+                        Spacer()
+                        Text(date, format: .dateTime.month().day())
+                    }.font(.system(size: 10)).foregroundStyle(.secondary)
+                    Text(event.summary).font(.system(size: 11)).lineSpacing(2).lineLimit(2)
+                }
             }
         }
     }
 
     private var expandedMetrics: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            HStack(spacing: 18) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 12) {
                 QuotaRing(percent: percent, size: 108)
                 resetCountdown
-            }.padding(.top, 8)
-            probabilities.padding(.vertical, 8)
+            }
+            probabilities.padding(.vertical, 4)
             if let date = entry.snapshot.forecast?.last_reset_at {
                 VStack(alignment: .leading, spacing: 5) {
                     SectionCaption(title: "最近一次全局重置")
@@ -150,7 +148,7 @@ struct ResetWidgetView: View {
     }
 
     private var expandedNews: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 8) {
             SectionCaption(title: "最新动态")
             ForEach(posts) { post in
                 VStack(alignment: .leading, spacing: 4) {
@@ -159,7 +157,7 @@ struct ResetWidgetView: View {
                         Spacer()
                         Text(post.at, format: .dateTime.month().day())
                     }.font(.system(size: 10)).foregroundStyle(.secondary)
-                    Text(post.text).font(.system(size: 12, weight: .regular)).lineSpacing(2).lineLimit(2)
+                    Text(post.text.split(whereSeparator: \.isWhitespace).joined(separator: " ")).font(.system(size: 12, weight: .regular)).lineSpacing(2).lineLimit(3)
                 }
             }
             Divider().opacity(0.45)
@@ -170,7 +168,7 @@ struct ResetWidgetView: View {
                         Text(date, format: .dateTime.month().day()).font(.system(size: 10, weight: .medium))
                             .foregroundStyle(.secondary).frame(width: 45, alignment: .leading)
                     }
-                    Text(event.summary).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(2)
+                    Text(event.summary).font(.system(size: 11, weight: .regular)).lineSpacing(2).lineLimit(3)
                 }
             }
         }
@@ -187,5 +185,6 @@ struct CodexResetWidget: Widget {
         .configurationDisplayName("Codex Reset")
         .description("查看重置概率、最新公告、历史记录与个人用量。")
         .supportedFamilies([.systemLarge, .systemExtraLarge])
+        .contentMarginsDisabled()
     }
 }
