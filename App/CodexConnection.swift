@@ -25,8 +25,8 @@ enum CodexConnection {
 
     static func disconnect() { UserDefaults.standard.removeObject(forKey: key) }
 
-    static func read() async throws -> PersonalUsage? {
-        guard let bookmark = UserDefaults.standard.data(forKey: key) else { return nil }
+    static func read() async throws -> (usage: PersonalUsage?, credits: ResetCredits?) {
+        guard let bookmark = UserDefaults.standard.data(forKey: key) else { return (nil, nil) }
         var stale = false
         let url = try URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale)
         guard url.startAccessingSecurityScopedResource() else { throw CocoaError(.fileReadNoPermission) }
@@ -35,6 +35,11 @@ enum CodexConnection {
             let renewed = try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil)
             UserDefaults.standard.set(renewed, forKey: key)
         }
-        return try await Task.detached(priority: .utility) { try CodexUsageReader.latest(in: url) }.value
+        return try await Task.detached(priority: .utility) {
+            let usage = try CodexUsageReader.latest(in: url)
+            let creditsURL = url.appendingPathComponent("codex-reset-credits.json")
+            let credits = (try? Data(contentsOf: creditsURL)).flatMap { try? APIJSON.decoder().decode(ResetCredits.self, from: $0) }
+            return (usage, credits)
+        }.value
     }
 }

@@ -6,3 +6,4 @@ xcuserdata/
 .DS_Store
 Config/Local.xcconfig
 *.log
+__pycache__/

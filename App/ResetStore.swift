@@ -9,10 +9,12 @@ final class ResetStore {
     var storageError: String?
     var codexConnected = CodexConnection.isConnected
     var codexError: String?
+    var resetCredits = SharedStorage.resetCredits
 
     func refresh() async {
         guard !refreshing else { return }
         refreshing = true
+        resetCredits = SharedStorage.resetCredits
         defer { refreshing = false }
         snapshot = await ResetAPI().refresh(previous: snapshot)
         do {
@@ -42,9 +44,15 @@ final class ResetStore {
     func refreshCodex() async {
         guard codexConnected else { return }
         do {
-            let usage = try await CodexConnection.read()
+            let local = try await CodexConnection.read()
             guard codexConnected else { return }
-            if let usage {
+            if let credits = local.credits {
+                do {
+                    try SharedStorage.save(credits, name: "reset-credits.json")
+                    resetCredits = credits
+                } catch { storageError = "重置券缓存保存失败" }
+            }
+            if let usage = local.usage {
                 savePersonal(usage)
                 codexError = nil
             } else { codexError = "最近 14 天未找到 Codex 周用量记录。使用 Codex 后再刷新。" }

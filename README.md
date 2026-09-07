@@ -11,6 +11,7 @@
 - **大号**：额度环、重置倒计时、双窗口预测、重点公告和最近核验日期。
 - **超大号**：左侧显示个人用量与预测，右侧展示 2 条重点公告和 2 条核验记录。点击打开主应用。
 - 原生侧栏分为概览、公告、重置历史；概览筛选重置/用量相关动态，公告页可切换全部/重点，历史页可切换已核验/全部。浅色与深色跟随系统。
+- 个人重置时间下方展示重置券可用数量与最近到期时间，未知数据展示“未同步”，同步失败或超过 15 分钟展示“待更新”。
 
 ## 界面预览
 
@@ -63,7 +64,22 @@ App 和 Widget 共用 `$(DEVELOPMENT_TEAM).com.cherine.codex-reset` App Group。
 
 应用打开期间随刷新更新，小组件读取应用已同步的快照；应用关闭后不会继续扫描 Codex 记录。记录超过 30 分钟时显示“待更新”。账户切换后需等待 Codex 产生新的用量记录。此本地日志格式不是稳定公共接口，未来 Codex 版本可能需要调整解析器。
 
-应用只向站点发送公开接口 GET 请求，不读取 ChatGPT 登录凭证，不上传会话、个人用量或重置时间，不调用站点的个人重置上报接口。扫描期间会在内存读取文件尾部，仅解码用量事件并保存额度字段。请求会像普通网站访问一样向站点暴露 IP 和时区。个人记录不会自动同步网站浏览器里的 localStorage。
+### 重置券自动同步（可选）
+
+需要本机已登录的 Codex 和 Python 3。重置券明细通过 `codex app-server` 的只读 `account/rateLimits/read` 获取；优先使用桌面应用内置的新版 Codex，旧 CLI 可能只返回数量而没有到期时间。不会调用兑换接口。
+
+```bash
+python3 script/install_credit_sync.py
+# 自定义会话目录：增加 --sessions /path/to/CODEX_HOME/sessions
+```
+
+安装器将独立脚本复制到 `~/Library/Application Support/CodexReset/`，注册 `com.cherine.codex-reset.credit-sync` LaunchAgent，登录时及每 300 秒运行。更新脚本后重新运行安装器即可。任务只将数量、到期时间和同步状态写入所选 sessions 目录下的 `codex-reset-credits.json`，不保存账号 ID、券 ID、凭证或对话内容。
+
+由于 macOS 限制普通后台脚本访问 App Group，主应用使用已有的 sessions 只读授权接收这份小文件，再写入小组件共享缓存。**保持主应用运行且已连接该 sessions 目录，才能持续将新券信息同步给小组件。** 组件的显示更新仍由 WidgetKit 调度，也可点击组件刷新按钮读取最新共享缓存。
+
+可通过 `launchctl bootout gui/$(id -u)/com.cherine.codex-reset.credit-sync` 停止当前任务；移除 `~/Library/LaunchAgents/com.cherine.codex-reset.credit-sync.plist` 可取消后续登录启动。任务只读取账号，券过期后在界面本地扣除；已用券以接下来成功读取的账号结果为准。
+
+应用向第三方站点发送公开接口 GET 请求，不读取 ChatGPT 登录凭证，不向该站点上传会话、个人用量、重置券或重置时间，不调用站点的个人重置上报接口。可选的重置券任务使用 Codex 自己的登录状态读取 OpenAI 账号额度。扫描期间会在内存读取文件尾部，仅解码用量事件并保存额度字段。第三方站点请求会像普通网站访问一样暴露 IP 和时区。个人记录不会自动同步网站浏览器里的 localStorage。
 
 这是第三方站点的数据展示工具，与 OpenAI 和源站没有隶属关系。预测属于源站的实验模型，并非重置承诺。站点接口未提供本项目可依赖的版本/可用性保证，接口变化可能需要更新解析代码。公告文本版权归原作者所有，保留来源链接。
 
@@ -73,6 +89,7 @@ App 和 Widget 共用 `$(DEVELOPMENT_TEAM).com.cherine.codex-reset` App Group。
 swift test
 LIVE_API_TEST=1 swift test --filter testLiveEndpointsWhenRequested
 LIVE_CODEX_TEST=1 swift test --filter CodexUsageTests
+python3 script/test_sync_reset_credits.py
 ./script/build_and_run.sh --build
 ```
 

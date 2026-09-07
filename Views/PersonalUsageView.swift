@@ -41,6 +41,17 @@ struct PersonalUsageView: View {
                     }
                 }.padding(.vertical, 4)
                 Spacer(minLength: 0)
+                if let count = store.resetCredits.count(at: .now) {
+                    HStack(spacing: 5) {
+                        Label("重置券 \(count) 张", systemImage: "ticket").foregroundStyle(.blue)
+                        Spacer()
+                        if store.resetCredits.isStale(at: .now) {
+                            Text("待更新").foregroundStyle(.orange)
+                        } else if let expiry = store.resetCredits.nextExpiry(at: .now) {
+                            Text("\(expiry.formatted(.dateTime.month().day())) 到期").foregroundStyle(.secondary)
+                        }
+                    }.font(.system(size: 10))
+                }
                 HStack(spacing: 5) {
                     Image(systemName: store.personal.isFromCodex ? "link" : "pencil")
                     Text(store.personal.sourceLabel)

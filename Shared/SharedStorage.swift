@@ -20,4 +20,5 @@ enum SharedStorage {
 
     static var snapshot: Snapshot { load("snapshot.json", default: Snapshot()) }
     static var personal: PersonalUsage { load("personal.json", default: PersonalUsage()) }
+    static var resetCredits: ResetCredits { load("reset-credits.json", default: ResetCredits()) }
 }

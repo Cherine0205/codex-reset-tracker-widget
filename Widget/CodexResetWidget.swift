@@ -19,6 +19,7 @@ struct ResetEntry: TimelineEntry {
     let date: Date
     let snapshot: Snapshot
     let personal: PersonalUsage
+    var credits: ResetCredits = ResetCredits()
 }
 
 struct ResetProvider: TimelineProvider {
@@ -26,18 +27,23 @@ struct ResetProvider: TimelineProvider {
         ResetEntry(date: .now, snapshot: Snapshot(), personal: PersonalUsage())
     }
     func getSnapshot(in context: Context, completion: @escaping (ResetEntry) -> Void) {
-        completion(ResetEntry(date: .now, snapshot: SharedStorage.snapshot, personal: SharedStorage.personal))
+        completion(ResetEntry(date: .now, snapshot: SharedStorage.snapshot, personal: SharedStorage.personal, credits: SharedStorage.resetCredits))
     }
     func getTimeline(in context: Context, completion: @escaping @Sendable (Timeline<ResetEntry>) -> Void) {
         Task {
             let snapshot = await ResetAPI().refresh(previous: SharedStorage.snapshot)
             // The app owns the disk cache; the extension fetches its own fresh timeline.
             let personal = SharedStorage.personal
+            let credits = SharedStorage.resetCredits
             let now = Date.now
-            var entries = [ResetEntry(date: now, snapshot: snapshot, personal: personal)]
+            var entries = [ResetEntry(date: now, snapshot: snapshot, personal: personal, credits: credits)]
             let refreshAt = now.addingTimeInterval(900)
             if personal.isConfigured && personal.resetAt > now && personal.resetAt < refreshAt {
-                entries.append(ResetEntry(date: personal.resetAt, snapshot: snapshot, personal: personal))
+                entries.append(ResetEntry(date: personal.resetAt, snapshot: snapshot, personal: personal, credits: credits))
+            }
+            if let expiry = credits.nextExpiry(at: now), expiry < refreshAt {
+                entries.append(ResetEntry(date: expiry, snapshot: snapshot, personal: personal, credits: credits))
+                entries.sort { $0.date < $1.date }
             }
             completion(Timeline(entries: entries, policy: .after(refreshAt)))
         }
@@ -150,6 +156,21 @@ struct ResetWidgetView: View {
                 Text("\(recorded.formatted(date: .omitted, time: .shortened)) 记录\(entry.personal.isOld(at: entry.date) ? " · 待更新" : "")")
                     .font(.system(size: 9)).foregroundStyle(entry.personal.isOld(at: entry.date) ? Color.orange : .secondary)
             }
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    Image(systemName: "ticket")
+                    Text("重置券")
+                    Text(entry.credits.count(at: entry.date).map { "\($0) 张" } ?? "未同步").fontWeight(.semibold)
+                }.font(.system(size: 11)).foregroundStyle(.blue)
+                if entry.credits.isStale(at: entry.date), entry.credits.fetchedAt != nil {
+                    Text("记录待更新").foregroundStyle(.orange)
+                } else if let expiry = entry.credits.nextExpiry(at: entry.date) {
+                    Text("\(expiry.formatted(.dateTime.month().day().hour().minute())) 到期").foregroundStyle(.secondary)
+                }
+            }
+            .font(.system(size: 9))
+            .padding(.top, 3)
+            .help(entry.credits.fetchedAt.map { "重置券同步于 \($0.formatted())" } ?? "尚未读取重置券")
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
 
