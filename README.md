@@ -2,6 +2,8 @@
 
 原生 SwiftUI 应用 + WidgetKit 桌面/通知中心小组件，直接读取 [codex-reset.com](https://codex-reset.com) 的公开接口。
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+
 ## 功能
 
 - **公告动态**：Tibo 的最新消息，保留网站提供的分类和原文链接。
@@ -103,3 +105,7 @@ python3 script/test_sync_reset_credits.py
 - `Widget/`：WidgetKit 时间线和三种尺寸
 - `Config/`：签名配置、Info.plist 和 entitlements
 - `Tests/`：核心逻辑及可选实时接口检查
+
+## 开源许可
+
+项目代码采用 [MIT License](LICENSE)，欢迎通过 Issue 和 Pull Request 参与。公告文本、第三方名称及预览中的来源内容仍归各自权利人所有，不因本项目开源而变更许可。预览中的个人用量和重置券为示例数据。
