@@ -52,32 +52,33 @@ App 和 Widget 共用 `$(DEVELOPMENT_TEAM).com.cherine.codex-reset` App Group。
 | 公告 | `GET https://codex-reset.com/api/feed` |
 | 历史 | `GET https://codex-reset.com/api/timeline` |
 | 预测 | `GET https://codex-reset.com/api/forecast?tz=<本机时区>` |
-| 个人用量 | 授权的 `~/.codex/sessions` 中 `token_count.rate_limits`，或手动填写；仅提取所需字段存入本机 App Group 的 `personal.json` |
+| 个人用量 | 优先读取本机 Codex 官方接口返回的账号周额度；没有账号快照时回退到授权的 sessions 日志，或手动填写 |
 
 应用打开期间每 5 分钟刷新，可用 ⌘R 手动刷新。小组件申请每 15 分钟刷新，实际时间由 macOS 调度，不能保证准点。请求失败时保留最近可用内容并显示过期/失败状态，三个接口独立失败不会清空其他数据。
 
-大号和超大号右上角均有刷新按钮，直接触发新的小组件时间线，重新获取公告、历史和预测，无需打开主窗口。个人用量仍读取主应用最近同步的本地记录。
+大号和超大号右上角均有刷新按钮，唤起并复用主应用窗口，通过 `codexreset://refresh` 触发一次账号和站点数据同步。主应用等待新账号结果再更新共享缓存和小组件；失败或 30 秒超时会在个人用量卡显示错误，不把旧记录的时间改成当前时间。
 
 ### 连接本机 Codex
 
 点击 **连接本机 Codex…**，在系统文件夹选择器中按 **⌘⇧G**，输入 `~/.codex/sessions`，选择“连接”。应用保存只读的 security-scoped bookmark，重新启动后继续读取；点击“断开”可清除连接和当前用量记录，恢复手动模式。自定义 `CODEX_HOME` 时选择对应目录下的 `sessions`。
 
-读取的是 **Codex 最近记录的账号额度快照**，不是主动查询 OpenAI 的实时账号接口。仅接受 `limit_id == codex`，按 `window_minutes == 10080` 查找周窗口，不把 primary 固定当成 5 小时，也不混入 Spark 等独立额度。扫描最近 14 天目录中的最新 32 个文件，各读取末尾最多 2 MiB；没有可用记录会显示提示。
+安装下述同步任务后，优先读取 **Codex 官方 `account/rateLimits/read` 返回的账号额度**，不再依赖最近一次对话生成的日志。仅使用 `codex` 额度桶，并按 `windowDurationMins == 10080` 查找周窗口，不混入 Spark。未产生账号快照时，仍可读取最近 14 天日志作为回退，界面会标明“Codex 本地记录”。
 
-应用打开期间随刷新更新，小组件读取应用已同步的快照；应用关闭后不会继续扫描 Codex 记录。记录超过 30 分钟时显示“待更新”。账户切换后需等待 Codex 产生新的用量记录。此本地日志格式不是稳定公共接口，未来 Codex 版本可能需要调整解析器。
+应用打开期间每 5 分钟将最新账号快照同步给小组件，手动刷新会额外触发一次账号读取。记录超过 30 分钟时显示“待更新”。只有日志回退模式依赖 Codex 产生新的会话记录。
 
-### 重置券自动同步（可选）
+### 账号用量与重置券同步
 
-需要本机已登录的 Codex 和 Python 3。重置券明细通过 `codex app-server` 的只读 `account/rateLimits/read` 获取；优先使用桌面应用内置的新版 Codex，旧 CLI 可能只返回数量而没有到期时间。不会调用兑换接口。
+需要本机已登录的 Codex 和 Python 3。周用量、重置时间和重置券明细均通过 `codex app-server` 的只读 `account/rateLimits/read` 获取；优先使用桌面应用内置的新版 Codex，旧 CLI 可能只返回券数量而没有到期时间。不会调用兑换接口。
 
 ```bash
 python3 script/install_credit_sync.py
 # 自定义会话目录：增加 --sessions /path/to/CODEX_HOME/sessions
+# 自定义构建路径：增加 --app /path/to/CodexReset.app
 ```
 
-安装器将独立脚本复制到 `~/Library/Application Support/CodexReset/`，注册 `com.cherine.codex-reset.credit-sync` LaunchAgent，登录时及每 300 秒运行。更新脚本后重新运行安装器即可。任务只将数量、到期时间和同步状态写入所选 sessions 目录下的 `codex-reset-credits.json`，不保存账号 ID、券 ID、凭证或对话内容。
+先构建应用再安装同步任务。安装器将独立脚本复制到 `~/Library/Application Support/CodexReset/`，注册 `com.cherine.codex-reset.credit-sync` LaunchAgent，登录时及每 300 秒运行，并监听 App Group 中的 `sync-request.json` 写入事件以响应手动刷新。**安装过旧版任务的用户也需重新运行安装器**，使实时用量读取和按需触发生效。任务只保存用量、重置时间、券数量、到期时间和同步状态，不保存账号 ID、券 ID、凭证或对话内容。
 
-由于 macOS 限制普通后台脚本访问 App Group，主应用使用已有的 sessions 只读授权接收这份小文件，再写入小组件共享缓存。**保持主应用运行且已连接该 sessions 目录，才能持续将新券信息同步给小组件。** 组件的显示更新仍由 WidgetKit 调度，也可点击组件刷新按钮读取最新共享缓存。
+由于 macOS 限制普通后台脚本访问 App Group，任务将结果写入所选 sessions 目录下的 `codex-reset-credits.json`。主应用使用已有的 sessions 只读授权接收这份小文件，再写入小组件共享缓存。保持主应用运行可持续同步；关闭时点击小组件刷新会唤起主应用，完成同一流程。组件最终显示更新仍由 WidgetKit 调度。
 
 可通过 `launchctl bootout gui/$(id -u)/com.cherine.codex-reset.credit-sync` 停止当前任务；移除 `~/Library/LaunchAgents/com.cherine.codex-reset.credit-sync.plist` 可取消后续登录启动。任务只读取账号，券过期后在界面本地扣除；已用券以接下来成功读取的账号结果为准。
 
@@ -102,7 +103,7 @@ python3 script/test_sync_reset_credits.py
 - `Shared/`：数据模型、HTTP 客户端、App Group 存储
 - `App/`：应用入口和状态
 - `Views/`：预测、公告、历史、个人用量界面
-- `Widget/`：WidgetKit 时间线和三种尺寸
+- `Widget/`：WidgetKit 时间线与大号、超大号布局
 - `Config/`：签名配置、Info.plist 和 entitlements
 - `Tests/`：核心逻辑及可选实时接口检查
 

@@ -7,10 +7,14 @@ struct CodexResetApp: App {
         WindowGroup("Codex Reset", id: "main") {
             ContentView(store: store)
                 .frame(minWidth: 900, minHeight: 660)
-                .onOpenURL { _ in NSApplication.shared.activate(ignoringOtherApps: true) }
+                .onOpenURL { url in
+                    NSApplication.shared.activate(ignoringOtherApps: true)
+                    if url.host == "refresh" { Task { await store.refresh() } }
+                }
+                .handlesExternalEvents(preferring: ["*"], allowing: ["*"])
                 .task {
                     while !Task.isCancelled {
-                        await store.refresh()
+                        await store.refresh(forceAccount: false)
                         do { try await Task.sleep(for: .seconds(300)) } catch { break }
                     }
                 }

@@ -25,7 +25,7 @@ enum CodexConnection {
 
     static func disconnect() { UserDefaults.standard.removeObject(forKey: key) }
 
-    static func read() async throws -> (usage: PersonalUsage?, credits: ResetCredits?) {
+    static func read(requestedAfter: Date? = nil) async throws -> (usage: PersonalUsage?, credits: ResetCredits?) {
         guard let bookmark = UserDefaults.standard.data(forKey: key) else { return (nil, nil) }
         var stale = false
         let url = try URL(resolvingBookmarkData: bookmark, options: [.withSecurityScope], relativeTo: nil, bookmarkDataIsStale: &stale)
@@ -35,11 +35,21 @@ enum CodexConnection {
             let renewed = try url.bookmarkData(options: [.withSecurityScope, .securityScopeAllowOnlyReadAccess], includingResourceValuesForKeys: nil, relativeTo: nil)
             UserDefaults.standard.set(renewed, forKey: key)
         }
-        return try await Task.detached(priority: .utility) {
-            let usage = try CodexUsageReader.latest(in: url)
-            let creditsURL = url.appendingPathComponent("codex-reset-credits.json")
-            let credits = (try? Data(contentsOf: creditsURL)).flatMap { try? APIJSON.decoder().decode(ResetCredits.self, from: $0) }
-            return (usage, credits)
-        }.value
+        let creditsURL = url.appendingPathComponent("codex-reset-credits.json")
+        var credits: ResetCredits?
+        let deadline = Date.now.addingTimeInterval(30)
+        repeat {
+            credits = (try? Data(contentsOf: creditsURL)).flatMap { try? APIJSON.decoder().decode(ResetCredits.self, from: $0) }
+            guard let requestedAfter else { break }
+            if (credits?.attemptedAt ?? credits?.fetchedAt ?? .distantPast) >= requestedAfter { break }
+            if Date.now >= deadline {
+                throw NSError(domain: "CodexSync", code: 1, userInfo: [NSLocalizedDescriptionKey: "账号同步超时，请检查本机同步任务是否已安装并运行。"])
+            }
+            try await Task.sleep(for: .milliseconds(500))
+        } while !Task.isCancelled
+        try Task.checkCancellation()
+        if let usage = credits?.usage { return (usage, credits) }
+        let logged = try await Task.detached(priority: .utility) { try CodexUsageReader.latest(in: url) }.value
+        return (logged, credits)
     }
 }

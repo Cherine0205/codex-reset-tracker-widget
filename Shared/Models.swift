@@ -65,8 +65,8 @@ struct PersonalUsage: Codable, Sendable {
     var source: String?
 
     var isConfigured: Bool { recordedAt != nil }
-    var isFromCodex: Bool { source == "codexLocal" }
-    var sourceLabel: String { isFromCodex ? "Codex 本地记录" : "手动记录" }
+    var isFromCodex: Bool { source == "codexLocal" || source == "codexAccount" }
+    var sourceLabel: String { source == "codexAccount" ? "Codex 账号同步" : isFromCodex ? "Codex 本地记录" : "手动记录" }
     func isOld(at date: Date = .now) -> Bool {
         isFromCodex && (recordedAt.map { date.timeIntervalSince($0) > 1800 } ?? true)
     }

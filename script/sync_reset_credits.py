@@ -97,6 +97,29 @@ def credit_snapshot(account):
             'fetchedAt': iso(time.time()), 'error': None}
 
 
+def account_snapshot(account):
+    snapshot = credit_snapshot(account)
+    limits_by_id = account.get('rateLimitsByLimitId')
+    limits = limits_by_id.get('codex') if isinstance(limits_by_id, dict) else None
+    if limits is None:
+        legacy = account.get('rateLimits')
+        if isinstance(legacy, dict) and legacy.get('limitId') in (None, 'codex'):
+            limits = legacy
+    snapshot['usage'] = None
+    if isinstance(limits, dict):
+        for slot in ['primary', 'secondary']:
+            window = limits.get(slot)
+            if not isinstance(window, dict) or window.get('windowDurationMins') != 10080:
+                continue
+            used, reset = window.get('usedPercent'), window.get('resetsAt')
+            if type(used) in (int, float) and 0 <= used <= 100 and type(reset) in (int, float) and reset > 0:
+                snapshot['usage'] = {'usedPercent': used, 'resetAt': iso(reset),
+                                     'recordedAt': snapshot['fetchedAt'], 'source': 'codexAccount'}
+                break
+    snapshot['attemptedAt'] = snapshot['fetchedAt']
+    return snapshot
+
+
 def write_atomic(path, value):
     descriptor, temporary = tempfile.mkstemp(prefix='.reset-credits-', dir=path.parent)
     try:
@@ -120,13 +143,14 @@ def main():
         except BlockingIOError:
             return
         try:
-            snapshot = credit_snapshot(read_account(args.codex or find_codex()))
+            snapshot = account_snapshot(read_account(args.codex or find_codex()))
         except Exception:
             try:
                 snapshot = json.loads(args.output.read_text())
             except (OSError, ValueError):
                 snapshot = {'availableCount': None, 'expirations': [], 'fetchedAt': None}
-            snapshot['error'] = '重置券同步失败'
+            snapshot['error'] = 'Codex 账号同步失败'
+            snapshot['attemptedAt'] = iso(time.time())
         write_atomic(args.output, snapshot)
 
 

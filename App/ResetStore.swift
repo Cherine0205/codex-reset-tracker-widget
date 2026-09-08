@@ -10,18 +10,29 @@ final class ResetStore {
     var codexConnected = CodexConnection.isConnected
     var codexError: String?
     var resetCredits = SharedStorage.resetCredits
+    private var pendingAccountRefresh = false
 
-    func refresh() async {
-        guard !refreshing else { return }
+    func refresh(forceAccount: Bool = true) async {
+        guard !refreshing else {
+            if forceAccount { pendingAccountRefresh = true }
+            return
+        }
         refreshing = true
         resetCredits = SharedStorage.resetCredits
-        defer { refreshing = false }
-        snapshot = await ResetAPI().refresh(previous: snapshot)
+        defer {
+            refreshing = false
+            if pendingAccountRefresh {
+                pendingAccountRefresh = false
+                Task { await self.refresh() }
+            }
+        }
+        async let remote = ResetAPI().refresh(previous: snapshot)
+        await refreshCodex(requestNew: forceAccount)
+        snapshot = await remote
         do {
             try SharedStorage.save(snapshot, name: "snapshot.json")
             storageError = nil
         } catch { storageError = "无法保存共享数据，请检查签名和 App Group 配置。" }
-        await refreshCodex()
         WidgetCenter.shared.reloadAllTimelines()
     }
 
@@ -41,10 +52,20 @@ final class ResetStore {
         savePersonal(PersonalUsage())
     }
 
-    func refreshCodex() async {
+    func refreshCodex(requestNew: Bool = false) async {
         guard codexConnected else { return }
         do {
-            let local = try await CodexConnection.read()
+            var requestedAt: Date?
+            if requestNew {
+                guard let marker = SharedStorage.directory?.appendingPathComponent("sync-request.json"),
+                      FileManager.default.fileExists(atPath: marker.path) else {
+                    throw NSError(domain: "CodexSync", code: 2, userInfo: [NSLocalizedDescriptionKey: "请先运行 script/install_credit_sync.py 安装账号同步任务。"])
+                }
+                requestedAt = .now
+                // Preserve the watched inode so launchd sees an explicit write event.
+                try JSONEncoder().encode(UUID().uuidString).write(to: marker)
+            }
+            let local = try await CodexConnection.read(requestedAfter: requestedAt)
             guard codexConnected else { return }
             if let credits = local.credits {
                 do {
@@ -54,10 +75,10 @@ final class ResetStore {
             }
             if let usage = local.usage {
                 savePersonal(usage)
-                codexError = nil
+                codexError = local.credits?.error
             } else { codexError = "最近 14 天未找到 Codex 周用量记录。使用 Codex 后再刷新。" }
         } catch {
-            if codexConnected { codexError = "读取失败，请重新连接 Codex 文件夹。" }
+            if codexConnected { codexError = error.localizedDescription }
         }
     }
 
